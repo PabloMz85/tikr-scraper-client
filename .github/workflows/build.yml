@@ -1,0 +1,42 @@
+name: Build TIKR Client
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+        python-version: ["3.13"]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip and install dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r requirements.txt
+
+      - name: Build with PyInstaller
+        run: |
+          python -m PyInstaller --noconfirm --windowed --onedir --name "TIKR-Client" app.py
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tikr-client-${{ runner.os }}-py${{ matrix.python-version }}
+          path: dist/
+          if-no-files-found: error
