@@ -214,6 +214,7 @@ __marimo__/
 token.tmp
 token.json
 .env
+run_script.sh
 
 # OS files
 .DS_Store

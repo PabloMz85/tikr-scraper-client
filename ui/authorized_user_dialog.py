@@ -15,7 +15,7 @@ class AuthorizedUserDialog(QDialog):
         layout.addWidget(label)
 
         self.input = QLineEdit()
-        self.input.setPlaceholderText("Número de usuario autorizado, p. ej. 10001")
+        self.input.setPlaceholderText("Número de usuario autorizado, p. ej. 00001")
         if current_value:
             self.input.setText(current_value)
         layout.addWidget(self.input)

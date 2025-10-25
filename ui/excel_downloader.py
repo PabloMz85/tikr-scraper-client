@@ -133,16 +133,6 @@ class ExcelDownloader(QWidget):
         form.addRow("Contraseña", self.input_password)
 
         account_layout.addLayout(form)
-        self.chk_remember = QCheckBox("Recordar credenciales")
-        self.chk_remember.setToolTip("Almacena tus credenciales de forma segura en el llavero del sistema para futuros inicios de sesión.")
-        account_layout.addWidget(self.chk_remember)
-
-        # add credentials hint
-        hint = QLabel(f"🔐 Las credenciales solo se utilizan para loguearse en TIKR y obtener el token,\nlas credenciales nunca serán enviadas al servidor y solo serán almacenadas de forma local.")
-        hint.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        hint.setStyleSheet("color: #555;")
-        account_layout.addWidget(hint)
-
         actions_row = QHBoxLayout()
         self.btn_generate_token = QPushButton("Generar token de acceso")
         self.btn_generate_token.clicked.connect(self.handle_generate_token)
@@ -167,6 +157,18 @@ class ExcelDownloader(QWidget):
         user_row.addWidget(self.user_label, stretch=1)
 
         account_layout.addLayout(user_row)
+
+        self.chk_remember = QCheckBox("Recordar credenciales")
+        self.chk_remember.setToolTip("Almacena tus credenciales de forma segura en el llavero del sistema para futuros inicios de sesión.")
+        account_layout.addWidget(self.chk_remember)
+        # Delete stored credentials immediately when unchecked
+        self.chk_remember.stateChanged.connect(self._on_remember_changed)
+
+        # add credentials hint
+        hint = QLabel(f"🔐 Las credenciales solo se utilizan para loguearse en TIKR y obtener el token,\nlas credenciales nunca serán enviadas al servidor y solo serán almacenadas de forma local.")
+        hint.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        hint.setStyleSheet("color: #555;")
+        account_layout.addWidget(hint)
 
         account_group.setLayout(account_layout)
         root.addWidget(account_group)
@@ -195,6 +197,16 @@ class ExcelDownloader(QWidget):
 
         export_group.setLayout(export_layout)
         root.addWidget(export_group)
+
+        # Agreement notice at bottom with link
+        agreement_label = QLabel('Al usar esta aplicación, aceptas el <a href="acuerdo">Acuerdo de Uso</a>.')
+        agreement_label.setTextFormat(Qt.TextFormat.RichText)
+        agreement_label.setOpenExternalLinks(False)
+        agreement_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        agreement_label.linkActivated.connect(self.show_agreement)
+        agreement_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        agreement_label.setStyleSheet("color: #555;")
+        root.addWidget(agreement_label)
 
         self.setLayout(root)
 
@@ -267,6 +279,92 @@ class ExcelDownloader(QWidget):
         except Exception:
             self.lbl_token_status.setText("Error al leer el archivo de token ❌")
             self.lbl_token_status.setProperty("class", "status-error")
+
+    def _on_remember_changed(self, state):
+        # If 'Recordar credenciales' is unchecked, remove all stored credentials immediately
+        try:
+            if int(state) == int(Qt.CheckState.Unchecked):
+                service = "tikr-scraper-client"
+                # Remove stored last email reference
+                try:
+                    keyring.delete_password(service, "__last_tikr_client_email__")
+                except Exception:
+                    pass
+                # Remove any stored password for known emails (stored and current input)
+                emails_to_try = set()
+                try:
+                    if getattr(self, "stored_email", ""):
+                        emails_to_try.add(self.stored_email)
+                except Exception:
+                    pass
+                try:
+                    current_email = (self.input_email.text().strip() if hasattr(self, "input_email") else "")
+                    if current_email:
+                        emails_to_try.add(current_email)
+                except Exception:
+                    pass
+                for em in emails_to_try:
+                    try:
+                        keyring.delete_password(service, em)
+                    except Exception:
+                        pass
+                # Remove stored authorized user number
+                try:
+                    keyring.delete_password(service, "__authorized_user_number__")
+                except Exception:
+                    pass
+                # Clear in-memory state and UI label
+                try:
+                    self.stored_email = ""
+                    self.stored_password = ""
+                    self.authorized_user_number = ""
+                except Exception:
+                    pass
+                try:
+                    self.user_label.setText("Usuario autorizado: no configurado")
+                except Exception:
+                    pass
+        except Exception:
+            # Never break the UI due to keyring or misc errors
+            pass
+
+    def show_agreement(self):
+        # Show the Spanish "Acuerdo de Uso" (Accept agreement) in a modal dialog
+        text = (
+            "ACUERDO DE USO\n\n"
+            "1) La aplicación cliente TIKR se proporciona “tal cual”, sin garantías de ningún tipo.\n"
+            "2) Credenciales: el correo y la contraseña SOLO se usan para iniciar sesión en TIKR y obtener el token.\n"
+            "   - Opcionalmente pueden guardarse en el llavero del sistema si marcas “Recordar credenciales”.\n"
+            "   - Si desmarcas esa opción, las credenciales guardadas se eliminan automáticamente.\n"
+            "   - Las credenciales NO se envían a servidores de terceros; solo al servicio de TIKR para autenticarte.\n"
+            "   - El Token generado por TIKR se almacena localmente, pero será enviado al servidor para conectarse a TIKR.\n"
+            "3) Privacidad: los datos introducidos y el Token se procesan localmente. Solo se realizan peticiones a TIKR\n"
+            "   para validar/generar el Token y descargar la información solicitada.\n"
+            "4) Uso: acepta utilizar la aplicación de acuerdo con los Términos de Servicio de TIKR y la legislación vigente.\n"
+            "   No está permitido redistribuir la aplicación ni los datos generados por la misma o usarlos con fines comerciales no autorizados.\n"
+            "   La plantilla de Excel proporcionada es solo para uso personal y no debe compartirse, la misma es propiedad\n"
+            "   exclusiva de Invertir desde Cero.\n"
+            "5) Responsabilidad: los autores no se hacen responsables de daños directos o indirectos derivados del uso\n"
+            "   de la aplicación.\n\n"
+            "Al continuar utilizando esta aplicación, declaras haber leído y aceptado este Acuerdo de Uso.\n"
+            "Si no estás de acuerdo con estos términos, por favor cierra la aplicación y elimínala de tu sistema.\n\n"
+            "El código fuente del cliente puede encontrarlo: https://github.com/PabloMz85/tikr-scraper-client.git" 
+        )
+        try:
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Icon.Information)
+            msg.setWindowTitle("Acuerdo de Uso")
+            msg.setText(text)
+            msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            # Widen only the message text label to avoid stretching the icon area
+            lbl = msg.findChild(QLabel, "qt_msgbox_label")
+            if lbl is not None:
+                lbl.setMinimumWidth(700)
+                lbl.setWordWrap(True)
+            msg.exec()
+        except Exception:
+            # No romper la UI por errores de diálogo
+            pass
 
     def set_busy(self, busy: bool, message: str | None = None):
         if busy:
