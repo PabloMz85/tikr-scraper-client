@@ -1,1 +1,1 @@
-API_URL = "http://127.0.0.1:5050/v0.1/getAssetExcel"
+API_URL = "https://inversion.pablomz.net/v0.1/getAssetExcel"
