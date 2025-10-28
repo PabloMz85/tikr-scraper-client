@@ -5,11 +5,12 @@ from .config import API_URL
 
 
 class DownloadWorker(QThread):
-    def __init__(self, asset: str, token: str, user_number: str):
+    def __init__(self, asset: str, token: str, user_number: str, incluir_año_actual: str):
         super().__init__()
         self.asset = asset
         self.token = token
         self.user_number = user_number
+        self.incluir_año_actual = incluir_año_actual
         self.result = None
         self.error = None
         self._cancel = False
@@ -27,9 +28,10 @@ class DownloadWorker(QThread):
             # Download with streaming so we can cancel mid-transfer
             response = requests.post(
                 API_URL,
-                json={"asset": self.asset, "token": self.token, "user_number": self.user_number},
+                json={"asset": self.asset, "token": self.token, "user_number": self.user_number, "with_actual_year_included": self.incluir_año_actual},
                 stream=True,
                 timeout=60,
+                verify=False,
             )
 
             # If the server returned an error, extract and surface the message

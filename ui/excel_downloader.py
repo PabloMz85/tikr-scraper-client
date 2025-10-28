@@ -187,6 +187,10 @@ class ExcelDownloader(QWidget):
         self.input_asset.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         export_layout.addWidget(self.input_asset)
 
+        self.chk_incluir_año_actual = QCheckBox("Inluir año actual en los datos exportados")
+        self.chk_incluir_año_actual.setToolTip("Si está marcado, los datos exportados incluirán el año actual (LTM). Si no está marcado, se exportarán solo años completos anteriores.")
+        export_layout.addWidget(self.chk_incluir_año_actual)
+
         self.button = QPushButton("Descargar Excel")
         self.button.clicked.connect(self.download_excel)
         export_layout.addWidget(self.button)
@@ -529,7 +533,8 @@ class ExcelDownloader(QWidget):
         # Run download in a background thread with a modal busy dialog and cancel support
         self.set_busy(True, f"Obteniendo archivo Excel de {asset}...")
         self.button.setEnabled(False)
-        self.worker = DownloadWorker(asset, self.token, user_number)
+        incluir_año_actual = "1" if self.chk_incluir_año_actual.isChecked() else "0"
+        self.worker = DownloadWorker(asset, self.token, user_number, incluir_año_actual)
         self.worker.finished.connect(self._on_download_done)
         self.worker.start()
 
